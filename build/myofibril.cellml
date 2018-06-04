@@ -229,8 +229,8 @@
         <variable initial_value="3.49E4" name="KIb" units="micromolar"/>
         <variable initial_value="4.73E3" name="Kid" units="micromolar"/>
         <variable initial_value="1.67E3" name="Kd" units="micromolar"/>
-        <variable initial_value="1.967E4" name="V1" units="micromolar_per_second"/>
-        <variable initial_value="8.290E4" name="V11" units="micromolar_per_second"/>
+        <variable initial_value="19.84E3" name="V1" units="micromolar_per_second"/>
+        <variable initial_value="84.53E3" name="V11" units="micromolar_per_second"/>
         <variable name="DenCK" units="dimensionless"/>
         <variable name="mATP" public_interface="in" units="micromolar"/>
         <variable name="Cr" public_interface="in" units="micromolar"/>
@@ -243,33 +243,37 @@
                 <apply>
                     <divide/>
                     <apply>
-                        <minus/>
+                        <times/>
+                        <cn cellml:units="dimensionless">1.0</cn>
                         <apply>
-                            <divide/>
+                            <minus/>
                             <apply>
-                                <times/>
-                                <ci>V1</ci>
-                                <ci>mATP</ci>
-                                <ci>Cr</ci>
+                                <divide/>
+                                <apply>
+                                    <times/>
+                                    <ci>V1</ci>
+                                    <ci>mATP</ci>
+                                    <ci>Cr</ci>
+                                </apply>
+                                <apply>
+                                    <times/>
+                                    <ci>Kia</ci>
+                                    <ci>Kb</ci>
+                                </apply>
                             </apply>
                             <apply>
-                                <times/>
-                                <ci>Kia</ci>
-                                <ci>Kb</ci>
-                            </apply>
-                        </apply>
-                        <apply>
-                            <divide/>
-                            <apply>
-                                <times/>
-                                <ci>V11</ci>
-                                <ci>mADP</ci>
-                                <ci>PCr</ci>
-                            </apply>
-                            <apply>
-                                <times/>
-                                <ci>Kic</ci>
-                                <ci>Kd</ci>
+                                <divide/>
+                                <apply>
+                                    <times/>
+                                    <ci>V11</ci>
+                                    <ci>mADP</ci>
+                                    <ci>PCr</ci>
+                                </apply>
+                                <apply>
+                                    <times/>
+                                    <ci>Kic</ci>
+                                    <ci>Kd</ci>
+                                </apply>
                             </apply>
                         </apply>
                     </apply>
