@@ -216,8 +216,8 @@
     </component>
     <component name="v_MiCK">
         <variable name="v_MiCK" public_interface="out" units="micromole_per_second_per_l_mito"/>
-        <variable initial_value="8.2012E3" name="V1" units="micromole_per_second_per_l_mito"/>
-        <variable initial_value="3.4452E4" name="V11" units="micromole_per_second_per_l_mito"/>
+        <variable initial_value="9.15E3" name="V1" units="micromole_per_second_per_l_mito"/>
+        <variable initial_value="38.42E3" name="V11" units="micromole_per_second_per_l_mito"/>
         <variable initial_value="7.12E2" name="Kia_G" units="micromolar"/>
         <variable initial_value="1.61E2" name="Kia" units="micromolar"/>
         <variable initial_value="1.42E2" name="Kic_G" units="micromolar"/>
@@ -239,33 +239,37 @@
                 <apply>
                     <divide/>
                     <apply>
-                        <minus/>
+                        <times/>
+                        <cn cellml:units="dimensionless">1.0</cn>
                         <apply>
-                            <divide/>
+                            <minus/>
                             <apply>
-                                <times/>
-                                <ci>V1</ci>
-                                <ci>mATPi</ci>
-                                <ci>Cri</ci>
+                                <divide/>
+                                <apply>
+                                    <times/>
+                                    <ci>V1</ci>
+                                    <ci>mATPi</ci>
+                                    <ci>Cri</ci>
+                                </apply>
+                                <apply>
+                                    <times/>
+                                    <ci>Kia</ci>
+                                    <ci>Kb</ci>
+                                </apply>
                             </apply>
                             <apply>
-                                <times/>
-                                <ci>Kia</ci>
-                                <ci>Kb</ci>
-                            </apply>
-                        </apply>
-                        <apply>
-                            <divide/>
-                            <apply>
-                                <times/>
-                                <ci>V11</ci>
-                                <ci>mADPi</ci>
-                                <ci>PCri</ci>
-                            </apply>
-                            <apply>
-                                <times/>
-                                <ci>Kic</ci>
-                                <ci>Kd</ci>
+                                <divide/>
+                                <apply>
+                                    <times/>
+                                    <ci>V11</ci>
+                                    <ci>mADPi</ci>
+                                    <ci>PCri</ci>
+                                </apply>
+                                <apply>
+                                    <times/>
+                                    <ci>Kic</ci>
+                                    <ci>Kd</ci>
+                                </apply>
                             </apply>
                         </apply>
                     </apply>
@@ -488,11 +492,7 @@
                 <ci>W_x</ci>
                 <apply>
                     <times/>
-                    <apply>
-                        <divide/>
-                        <cn cellml:units="dimensionless">9</cn>
-                        <cn cellml:units="dimensionless">10</cn>
-                    </apply>
+                    <cn cellml:units="dimensionless">9</cn>
                     <ci>W_m</ci>
                 </apply>
             </apply>
@@ -501,11 +501,7 @@
                 <ci>W_i</ci>
                 <apply>
                     <times/>
-                    <apply>
-                        <divide/>
-                        <cn cellml:units="dimensionless">1</cn>
-                        <cn cellml:units="dimensionless">10</cn>
-                    </apply>
+                    <cn cellml:units="dimensionless">1</cn>
                     <ci>W_m</ci>
                 </apply>
             </apply>
@@ -730,6 +726,7 @@
                 <ci>V_C1</ci>
                 <apply>
                     <times/>
+                    <cn cellml:units="dimensionless">1.000</cn>
                     <ci>x_C1</ci>
                     <apply>
                         <minus/>
@@ -825,6 +822,7 @@
                         <divide/>
                         <apply>
                             <times/>
+                            <cn cellml:units="dimensionless">1.000</cn>
                             <ci>x_C3</ci>
                             <apply>
                                 <plus/>
@@ -957,7 +955,11 @@
                             <times/>
                             <apply>
                                 <divide/>
-                                <ci>x_C4</ci>
+                                <apply>
+                                    <times/>
+                                    <cn cellml:units="dimensionless">1.000</cn>
+                                    <ci>x_C4</ci>
+                                </apply>
                                 <apply>
                                     <plus/>
                                     <cn cellml:units="dimensionless">1</cn>
@@ -1034,13 +1036,13 @@
         <variable name="ADP_mx" public_interface="in" units="micromolar"/>
         <variable name="Pi_x" public_interface="in" units="micromolar"/>
         <variable name="ATP_mx" public_interface="in" units="micromolar"/>
-        <variable name="V_F1_micro" units="micromole_per_second_per_l_mito"/>
         <math xmlns="http://www.w3.org/1998/Math/MathML">
             <apply>
                 <eq/>
                 <ci>V_F1</ci>
                 <apply>
                     <times/>
+                    <cn cellml:units="dimensionless">1.000</cn>
                     <ci>x_F1</ci>
                     <apply>
                         <minus/>
@@ -1083,11 +1085,6 @@
                         </apply>
                     </apply>
                 </apply>
-            </apply>
-            <apply>
-                <eq/>
-                <ci>V_F1_micro</ci>
-                <ci>V_F1</ci>
             </apply>
         </math>
     </component>
@@ -1141,6 +1138,7 @@
                             <divide/>
                             <apply>
                                 <times/>
+                                <cn cellml:units="dimensionless">1.000</cn>
                                 <ci>x_ANT</ci>
                                 <apply>
                                     <minus/>
@@ -1218,6 +1216,7 @@
                             <divide/>
                             <apply>
                                 <times/>
+                                <cn cellml:units="dimensionless">1.000</cn>
                                 <ci>x_ANT</ci>
                                 <apply>
                                     <minus/>
@@ -1350,6 +1349,7 @@
                     <divide/>
                     <apply>
                         <times/>
+                        <cn cellml:units="dimensionless">1.000</cn>
                         <ci>x_Pi1</ci>
                         <apply>
                             <minus/>
@@ -1870,7 +1870,13 @@
         <variable name="V_ANT" public_interface="in" units="micromole_per_second_per_l_mito"/>
         <variable name="W_x" public_interface="in" units="l_water_per_l_mito"/>
         <variable name="t" public_interface="in" units="millisecond"/>
+        <variable name="ADP_xx" public_interface="out" units="micromolar"/>
         <math xmlns="http://www.w3.org/1998/Math/MathML">
+            <apply>
+                <eq/>
+                <ci>ADP_xx</ci>
+                <ci>ADP_x</ci>
+            </apply>
             <apply>
                 <eq/>
                 <apply>
@@ -1905,7 +1911,13 @@
         <variable name="V_Pi1" public_interface="in" units="micromole_per_second_per_l_mito"/>
         <variable name="W_x" public_interface="in" units="l_water_per_l_mito"/>
         <variable name="t" public_interface="in" units="millisecond"/>
+        <variable name="Pi_xx" public_interface="out" units="micromolar"/>
         <math xmlns="http://www.w3.org/1998/Math/MathML">
+            <apply>
+                <eq/>
+                <ci>Pi_xx</ci>
+                <ci>Pi_x</ci>
+            </apply>
             <apply>
                 <eq/>
                 <apply>
