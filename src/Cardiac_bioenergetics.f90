@@ -1,7 +1,7 @@
 !> \file
-!> $Id: cardiac_ecc.f90 2014-12-16 ghosh_shourya $
-!> \author Vijay Rajagopal
-!> \brief Main program file to simulate cardiac bioenergetics using opencmfe_ library routines
+!> $Id: DiffusionExample.f90 1528 2010-09-21 01:32:29Z chrispbradley $
+!> \author Chris Bradley
+!> \brief This is an example program to solve a diffusion equation using OpenCMISS calls.
 !>
 !> \section LICENSE
 !>
@@ -17,7 +17,7 @@
 !> License for the specific language governing rights and limitations
 !> under the License.
 !>
-!> The Original Code is Opencmfe_
+!> The Original Code is OpenCMISS
 !>
 !> The Initial Developer of the Original Code is University of Auckland,
 !> Auckland, New Zealand and University of Oxford, Oxford, United
@@ -36,11 +36,17 @@
 !> use your version of this file under the terms of the MPL, indicate your
 !> decision by deleting the provisions above and replace them with the notice
 !> and other provisions required by the GPL or the LGPL. If you do not delete
-!> the provisions above, a recipient may use your version of this file under
+!> the provisions above, a recOxyent may use your version of this file under
 !> the terms of any one of the MPL, the GPL or the LGPL.
 !>
+
+!> \example ClassicalField/ReactionDiffusion/ReactionDiffusionNoSource1D/src/ReactionDiffusionNoSource1DExample.f90
+!! Example program to solve a diffusion equation using OpenCMISS calls.
+!! \htmlinclude ClassicalField/ReactionDiffusion/ReactionDiffusionNoSource1D/history.html
+!<
+
 !> Main program
-PROGRAM Cardiac_bioenergetics
+PROGRAM REACTIONDIFFUSIONNOSOURCE1DEXAMPLE
 
   USE OpenCMISS
   USE OpenCMISS_Iron
@@ -135,11 +141,13 @@ PROGRAM Cardiac_bioenergetics
   INTEGER :: node
   REAL(CMISSDP) :: VALUE, BCVALUE
   INTEGER(CMISSIntg) :: MitocondriaIndex, MyofibrilIndex
-
+  !INTEGER(INTG) :: first_global_dof,first_local_dof,first_local_rank,last_global_dof,last_local_dof,last_local_rank,rank_idx
+  !INTEGER(INTG) :: EQUATIONS_SET_INDEX
+  !TYPE(DOMAIN_MAPPING_TYPE), POINTER :: DEPENDENT_DOF_MAPPING
   
  
   !CMISS variables
-  !setting up fields 
+  !setting up fields for Ca and CaM equation sets.
   TYPE(cmfe_BasisType) :: Basis
   TYPE(cmfe_CoordinateSystemType) :: CoordinateSystem,WorldCoordinateSystem
   TYPE(cmfe_DecompositionType) :: Decomposition
@@ -221,8 +229,8 @@ PROGRAM Cardiac_bioenergetics
 
 
 !_________________________________________________________________________________________________
-  !Read inputs.txt 
-
+  !Problem INPUTS. PARAMETERS 
+  !MESH FILES
   open(unit=9,file='input.txt',status='old',action='read',iostat=st)
   IF(st>0)then
     print *,'Error opening inputs file',st
@@ -294,7 +302,8 @@ PROGRAM Cardiac_bioenergetics
 
 !___________________________________________________________________________________________________
    !Time to create a mesh - wohoo!
-  !CODE TO READ in nodes and elements
+  !CODE TO READ in nodes and elements (set up RyRDensity array with column 
+  !of zeros for later updating).
 
   WRITE(*,*) NODEFILE  
   open(unit=10,file=NODEFILE,status='old',action='read',iostat=st)
@@ -361,6 +370,19 @@ PROGRAM Cardiac_bioenergetics
   CLOSE(11)
 
  WRITE(*,*) MITOVOLS
+ ! OPEN(unit=12,file=MITOVOLS,status='old',action='read',iostat=st)
+ ! IF(st>0)THEN
+   ! PRINT *,'Error opening MITOVOLS file',st
+   ! STOP
+  !ELSE
+    !PRINT *,'MITOVOLS file opened successfully'
+    !  READ(12,*) NUMBER_OF_MTOS
+   ! ALLOCATE(VolMap(NUMBER_OF_MTOS))
+   ! DO i = 1,NUMBER_OF_MTOS
+  !    READ(12,*) VolMap(i)
+ !   ENDDO
+  !ENDIF
+ ! CLOSE(12)
 !____________________________________________________________________________________________________
 
 !Use array of nodes and elements for setting up mesh.
@@ -422,8 +444,8 @@ PROGRAM Cardiac_bioenergetics
     node = NodeNums(i,1)
     CALL cmfe_Decomposition_NodeDomainGet(Decomposition,node,1,NodeDomain,Err)
     IF(NodeDomain==ComputationalNodeNumber) THEN
-      nodex = NodeCoords(i,1)*0.002
-      nodey = NodeCoords(i,2)*0.002
+      nodex = NodeCoords(i,1)*0.002289
+      nodey = NodeCoords(i,2)*0.002289
       CALL cmfe_Field_ParameterSetUpdateNode(GeometricField,cmfe_FIELD_U_VARIABLE_TYPE,cmfe_FIELD_VALUES_SET_TYPE,1, &
        &   1,node,1,nodex, Err)
       CALL cmfe_Field_ParameterSetUpdateNode(GeometricField,cmfe_FIELD_U_VARIABLE_TYPE,cmfe_FIELD_VALUES_SET_TYPE,1, &
@@ -446,7 +468,7 @@ PROGRAM Cardiac_bioenergetics
   ENDIF
 
 !___________________________________________________________________________________________________________________________
-
+ 
 
   !################( ATP )#############################################################--->
 
@@ -476,7 +498,7 @@ PROGRAM Cardiac_bioenergetics
   CALL cmfe_Field_Initialise(ATPMaterialsField,Err)
   CALL cmfe_EquationsSet_MaterialsCreateStart(ATPEquationsSet,ATPMaterialsFieldUserNumber,ATPMaterialsField,Err)
   
-  !Set to node based interpolation
+  !Set to element based interpolation
   CALL cmfe_Field_ComponentInterpolationSet(ATPMaterialsField,cmfe_FIELD_U_VARIABLE_TYPE,1, &
       & cmfe_FIELD_NODE_BASED_INTERPOLATION,Err)
   CALL cmfe_Field_ComponentInterpolationSet(ATPMaterialsField,cmfe_FIELD_U_VARIABLE_TYPE,2, &
@@ -485,49 +507,25 @@ PROGRAM Cardiac_bioenergetics
   !Finish the equations set materials field variables
   CALL cmfe_EquationsSet_MaterialsCreateFinish(ATPEquationsSet,Err)
 
-  ! First set mitochondrial  diffusivity to be zero everhwhere  
-   CALL cmfe_Field_ComponentValuesInitialise(ATPMaterialsField,cmfe_FIELD_U_VARIABLE_TYPE, &
-   & cmfe_FIELD_VALUES_SET_TYPE, &
-   & 2,0.0_CMISSDP,Err) !diff coeff in y
+
   CALL cmfe_Field_ComponentValuesInitialise(ATPMaterialsField,cmfe_FIELD_U_VARIABLE_TYPE, &
    & cmfe_FIELD_VALUES_SET_TYPE, &
-   & 1,0.0_CMISSDP,Err) !diff coeff in x
-
-  !Set IMS diffusivity to be 1% of myofibril diffusivity
+   & 2,ATPDiffx,Err) !diff coeff in y
+  CALL cmfe_Field_ComponentValuesInitialise(ATPMaterialsField,cmfe_FIELD_U_VARIABLE_TYPE, &
+   & cmfe_FIELD_VALUES_SET_TYPE, &
+   & 1,ATPDiffx,Err) !diff coeff in x
 
     DO i = 1,NUMBER_OF_NODES
-     IF(NodeCoords(i,3)<20.AND.NodeCoords(i,3)>10) THEN
+      IF(NodeCoords(i,3)<1.AND.NodeNums(i,3)<10) THEN
       CALL cmfe_Decomposition_NodeDomainGet(Decomposition,NodeNums(i,1),1,NodeDomain,Err)
        IF(NodeDomain==ComputationalNodeNumber) THEN
         CALL cmfe_Field_ParameterSetUpdateNode(ATPMaterialsField,cmfe_FIELD_U_VARIABLE_TYPE, &
               & cmfe_FIELD_VALUES_SET_TYPE,1,1,NodeNums(i,1),1,0.01_CMISSDP*ATPDiffx,Err)
          CALL cmfe_Field_ParameterSetUpdateNode(ATPMaterialsField,cmfe_FIELD_U_VARIABLE_TYPE, &
               & cmfe_FIELD_VALUES_SET_TYPE,1,1,NodeNums(i,1),2,0.01_CMISSDP*ATPDiffy,Err)
-       ENDIF
-     ENDIF
-      
-     IF(NodeNums(i,3)==20.OR.NodeNums(i,3)==15) THEN
-      CALL cmfe_Decomposition_NodeDomainGet(Decomposition,NodeNums(i,1),1,NodeDomain,Err)
-       IF(NodeDomain==ComputationalNodeNumber) THEN
-        CALL cmfe_Field_ParameterSetUpdateNode(ATPMaterialsField,cmfe_FIELD_U_VARIABLE_TYPE, &
-              & cmfe_FIELD_VALUES_SET_TYPE,1,1,NodeNums(i,1),1,0.01_CMISSDP*ATPDiffx,Err)
-         CALL cmfe_Field_ParameterSetUpdateNode(ATPMaterialsField,cmfe_FIELD_U_VARIABLE_TYPE, &
-              & cmfe_FIELD_VALUES_SET_TYPE,1,1,NodeNums(i,1),2,0.01_CMISSDP*ATPDiffy,Err)
-       ENDIF
-     ENDIF    
- 
-   !Set myofibrils diffusivity to be 100% of inputs.txt values       
-      IF(NodeCoords(i,3)==10) THEN
-      CALL cmfe_Decomposition_NodeDomainGet(Decomposition,NodeNums(i,1),1,NodeDomain,Err)
-       IF(NodeDomain==ComputationalNodeNumber) THEN
-        CALL cmfe_Field_ParameterSetUpdateNode(ATPMaterialsField,cmfe_FIELD_U_VARIABLE_TYPE, &
-              & cmfe_FIELD_VALUES_SET_TYPE,1,1,NodeNums(i,1),1,ATPDiffx,Err)
-         CALL cmfe_Field_ParameterSetUpdateNode(ATPMaterialsField,cmfe_FIELD_U_VARIABLE_TYPE, &
-              & cmfe_FIELD_VALUES_SET_TYPE,1,1,NodeNums(i,1),2,ATPDiffy,Err)
        ENDIF
      ENDIF
   ENDDO
-
 
 
   CALL cmfe_Field_ParameterSetUpdateStart(ATPMaterialsField,cmfe_FIELD_U_VARIABLE_TYPE,cmfe_FIELD_VALUES_SET_TYPE,Err)
@@ -560,7 +558,7 @@ CALL cmfe_EquationsSet_CreateFinish(ADPEquationsSet,Err)
 
   CALL cmfe_Field_Initialise(ADPMaterialsField,Err)
   CALL cmfe_EquationsSet_MaterialsCreateStart(ADPEquationsSet,ADPMaterialsFieldUserNumber,ADPMaterialsField,Err)
-   !Set to node based interpolation
+   !Set to element based interpolation
   CALL cmfe_Field_ComponentInterpolationSet(ADPMaterialsField,cmfe_FIELD_U_VARIABLE_TYPE,1, &
       & cmfe_FIELD_NODE_BASED_INTERPOLATION,Err)
   CALL cmfe_Field_ComponentInterpolationSet(ADPMaterialsField,cmfe_FIELD_U_VARIABLE_TYPE,2, &
@@ -570,39 +568,20 @@ CALL cmfe_EquationsSet_CreateFinish(ADPEquationsSet,Err)
 
   CALL cmfe_Field_ComponentValuesInitialise(ADPMaterialsField,cmfe_FIELD_U_VARIABLE_TYPE, &
    & cmfe_FIELD_VALUES_SET_TYPE, &
-   & 2,0.0_CMISSDP,Err) !diff coeff in y
+   & 2,ADPDiffx,Err) !diff coeff in y
   CALL cmfe_Field_ComponentValuesInitialise(ADPMaterialsField,cmfe_FIELD_U_VARIABLE_TYPE, &
    & cmfe_FIELD_VALUES_SET_TYPE, &
-   & 1,0.0_CMISSDP,Err) !diff coeff in x
+   & 1,ADPDiffx,Err) !diff coeff in x
+
 
     DO i = 1,NUMBER_OF_NODES
-     IF(NodeCoords(i,3)<20.AND.NodeCoords(i,3)>10) THEN
+      IF(NodeCoords(i,3)<1.AND.NodeNums(i,3)<10) THEN
       CALL cmfe_Decomposition_NodeDomainGet(Decomposition,NodeNums(i,1),1,NodeDomain,Err)
        IF(NodeDomain==ComputationalNodeNumber) THEN
         CALL cmfe_Field_ParameterSetUpdateNode(ADPMaterialsField,cmfe_FIELD_U_VARIABLE_TYPE, &
               & cmfe_FIELD_VALUES_SET_TYPE,1,1,NodeNums(i,1),1,0.01_CMISSDP*ADPDiffx,Err)
          CALL cmfe_Field_ParameterSetUpdateNode(ADPMaterialsField,cmfe_FIELD_U_VARIABLE_TYPE, &
               & cmfe_FIELD_VALUES_SET_TYPE,1,1,NodeNums(i,1),2,0.01_CMISSDP*ADPDiffy,Err)
-       ENDIF
-     ENDIF
-        
-          IF(NodeNums(i,3)==20.OR.NodeNums(i,3)==15) THEN
-      CALL cmfe_Decomposition_NodeDomainGet(Decomposition,NodeNums(i,1),1,NodeDomain,Err)
-       IF(NodeDomain==ComputationalNodeNumber) THEN
-        CALL cmfe_Field_ParameterSetUpdateNode(ADPMaterialsField,cmfe_FIELD_U_VARIABLE_TYPE, &
-              & cmfe_FIELD_VALUES_SET_TYPE,1,1,NodeNums(i,1),1,0.01_CMISSDP*ADPDiffx,Err)
-         CALL cmfe_Field_ParameterSetUpdateNode(ADPMaterialsField,cmfe_FIELD_U_VARIABLE_TYPE, &
-              & cmfe_FIELD_VALUES_SET_TYPE,1,1,NodeNums(i,1),2,0.01_CMISSDP*ADPDiffy,Err)
-       ENDIF
-     ENDIF    
-     		     
-      IF(NodeCoords(i,3)==10) THEN
-      CALL cmfe_Decomposition_NodeDomainGet(Decomposition,NodeNums(i,1),1,NodeDomain,Err)
-       IF(NodeDomain==ComputationalNodeNumber) THEN
-        CALL cmfe_Field_ParameterSetUpdateNode(ADPMaterialsField,cmfe_FIELD_U_VARIABLE_TYPE, &
-              & cmfe_FIELD_VALUES_SET_TYPE,1,1,NodeNums(i,1),1,ADPDiffx,Err)
-         CALL cmfe_Field_ParameterSetUpdateNode(ADPMaterialsField,cmfe_FIELD_U_VARIABLE_TYPE, &
-              & cmfe_FIELD_VALUES_SET_TYPE,1,1,NodeNums(i,1),2,ADPDiffy,Err)
        ENDIF
      ENDIF
   ENDDO
@@ -656,40 +635,20 @@ CALL cmfe_EquationsSet_CreateFinish(ADPEquationsSet,Err)
 
   CALL cmfe_Field_ComponentValuesInitialise(AMPMaterialsField,cmfe_FIELD_U_VARIABLE_TYPE, &
    & cmfe_FIELD_VALUES_SET_TYPE, &
-   & 2,0.0_CMISSDP,Err) !diff coeff in y
+   & 2,AMPDiffx,Err) !diff coeff in y
   CALL cmfe_Field_ComponentValuesInitialise(AMPMaterialsField,cmfe_FIELD_U_VARIABLE_TYPE, &
    & cmfe_FIELD_VALUES_SET_TYPE, &
-   & 1,0.0_CMISSDP,Err) !diff coeff in x
+   & 1,AMPDiffx,Err) !diff coeff in x
 
 
     DO i = 1,NUMBER_OF_NODES
-     IF(NodeCoords(i,3)<20.AND.NodeCoords(i,3)>10) THEN
+      IF(NodeCoords(i,3)<1.AND.NodeNums(i,3)<10) THEN
       CALL cmfe_Decomposition_NodeDomainGet(Decomposition,NodeNums(i,1),1,NodeDomain,Err)
        IF(NodeDomain==ComputationalNodeNumber) THEN
         CALL cmfe_Field_ParameterSetUpdateNode(AMPMaterialsField,cmfe_FIELD_U_VARIABLE_TYPE, &
               & cmfe_FIELD_VALUES_SET_TYPE,1,1,NodeNums(i,1),1,0.01_CMISSDP*AMPDiffx,Err)
          CALL cmfe_Field_ParameterSetUpdateNode(AMPMaterialsField,cmfe_FIELD_U_VARIABLE_TYPE, &
               & cmfe_FIELD_VALUES_SET_TYPE,1,1,NodeNums(i,1),2,0.01_CMISSDP*AMPDiffy,Err)
-       ENDIF
-     ENDIF
-        
-      IF(NodeNums(i,3)==20.OR.NodeNums(i,3)==15) THEN
-      CALL cmfe_Decomposition_NodeDomainGet(Decomposition,NodeNums(i,1),1,NodeDomain,Err)
-       IF(NodeDomain==ComputationalNodeNumber) THEN
-        CALL cmfe_Field_ParameterSetUpdateNode(AMPMaterialsField,cmfe_FIELD_U_VARIABLE_TYPE, &
-              & cmfe_FIELD_VALUES_SET_TYPE,1,1,NodeNums(i,1),1,0.01_CMISSDP*AMPDiffx,Err)
-         CALL cmfe_Field_ParameterSetUpdateNode(AMPMaterialsField,cmfe_FIELD_U_VARIABLE_TYPE, &
-              & cmfe_FIELD_VALUES_SET_TYPE,1,1,NodeNums(i,1),2,0.01_CMISSDP*AMPDiffy,Err)
-       ENDIF
-     ENDIF 
-        
-      IF(NodeCoords(i,3)==10) THEN
-      CALL cmfe_Decomposition_NodeDomainGet(Decomposition,NodeNums(i,1),1,NodeDomain,Err)
-       IF(NodeDomain==ComputationalNodeNumber) THEN
-        CALL cmfe_Field_ParameterSetUpdateNode(AMPMaterialsField,cmfe_FIELD_U_VARIABLE_TYPE, &
-              & cmfe_FIELD_VALUES_SET_TYPE,1,1,NodeNums(i,1),1,AMPDiffx,Err)
-         CALL cmfe_Field_ParameterSetUpdateNode(AMPMaterialsField,cmfe_FIELD_U_VARIABLE_TYPE, &
-              & cmfe_FIELD_VALUES_SET_TYPE,1,1,NodeNums(i,1),2,AMPDiffy,Err)
        ENDIF
      ENDIF
   ENDDO
@@ -743,24 +702,23 @@ CALL cmfe_EquationsSet_CreateFinish(ADPEquationsSet,Err)
 
   CALL cmfe_Field_ComponentValuesInitialise(PCrMaterialsField,cmfe_FIELD_U_VARIABLE_TYPE, &
    & cmfe_FIELD_VALUES_SET_TYPE, &
-   & 2,0.0_CMISSDP,Err) !diff coeff in y
+   & 2,PCrDiffx,Err) !diff coeff in y
   CALL cmfe_Field_ComponentValuesInitialise(PCrMaterialsField,cmfe_FIELD_U_VARIABLE_TYPE, &
    & cmfe_FIELD_VALUES_SET_TYPE, &
-   & 1,0.0_CMISSDP,Err) !diff coeff in x
-
-  !Set same diffusivity values in IMS and myofibrils
+   & 1,PCrDiffy,Err) !diff coeff in x
 
     DO i = 1,NUMBER_OF_NODES
-     IF(NodeCoords(i,3)<20.OR.NodeNums(i,3)==20) THEN
+      IF(NodeCoords(i,3)<1.AND.NodeNums(i,3)<10) THEN
       CALL cmfe_Decomposition_NodeDomainGet(Decomposition,NodeNums(i,1),1,NodeDomain,Err)
        IF(NodeDomain==ComputationalNodeNumber) THEN
         CALL cmfe_Field_ParameterSetUpdateNode(PCrMaterialsField,cmfe_FIELD_U_VARIABLE_TYPE, &
-              & cmfe_FIELD_VALUES_SET_TYPE,1,1,NodeNums(i,1),1,PCrDiffx,Err)
+              & cmfe_FIELD_VALUES_SET_TYPE,1,1,NodeNums(i,1),1,0.1_CMISSDP*PCrDiffx,Err)
          CALL cmfe_Field_ParameterSetUpdateNode(PCrMaterialsField,cmfe_FIELD_U_VARIABLE_TYPE, &
-              & cmfe_FIELD_VALUES_SET_TYPE,1,1,NodeNums(i,1),2,PCrDiffy,Err)
+              & cmfe_FIELD_VALUES_SET_TYPE,1,1,NodeNums(i,1),2,0.1_CMISSDP*PCrDiffy,Err)
        ENDIF
      ENDIF
-   ENDDO
+  ENDDO
+
 
   CALL cmfe_Field_ParameterSetUpdateStart(PCrMaterialsField,cmfe_FIELD_U_VARIABLE_TYPE,cmfe_FIELD_VALUES_SET_TYPE,Err)
   CALL cmfe_Field_ParameterSetUpdateFinish(PCrMaterialsField,cmfe_FIELD_U_VARIABLE_TYPE,cmfe_FIELD_VALUES_SET_TYPE,Err)
@@ -811,22 +769,23 @@ CALL cmfe_EquationsSet_CreateFinish(ADPEquationsSet,Err)
 
   CALL cmfe_Field_ComponentValuesInitialise(CrMaterialsField,cmfe_FIELD_U_VARIABLE_TYPE, &
    & cmfe_FIELD_VALUES_SET_TYPE, &
-   & 2,0.0_CMISSDP,Err) !diff coeff in y
+   & 2,CrDiffx,Err) !diff coeff in y
   CALL cmfe_Field_ComponentValuesInitialise(CrMaterialsField,cmfe_FIELD_U_VARIABLE_TYPE, &
    & cmfe_FIELD_VALUES_SET_TYPE, &
-   & 1,0.0_CMISSDP,Err) !diff coeff in x
+   & 1,CrDiffx,Err) !diff coeff in x
 
     DO i = 1,NUMBER_OF_NODES
-     IF(NodeCoords(i,3)<20.OR.NodeNums(i,3)==20) THEN
+      IF(NodeCoords(i,3)<1.AND.NodeNums(i,3)<10) THEN
       CALL cmfe_Decomposition_NodeDomainGet(Decomposition,NodeNums(i,1),1,NodeDomain,Err)
        IF(NodeDomain==ComputationalNodeNumber) THEN
         CALL cmfe_Field_ParameterSetUpdateNode(CrMaterialsField,cmfe_FIELD_U_VARIABLE_TYPE, &
-              & cmfe_FIELD_VALUES_SET_TYPE,1,1,NodeNums(i,1),1,CrDiffx,Err)
+              & cmfe_FIELD_VALUES_SET_TYPE,1,1,NodeNums(i,1),1,0.1_CMISSDP*CrDiffx,Err)
          CALL cmfe_Field_ParameterSetUpdateNode(CrMaterialsField,cmfe_FIELD_U_VARIABLE_TYPE, &
-              & cmfe_FIELD_VALUES_SET_TYPE,1,1,NodeNums(i,1),2,CrDiffy,Err)
+              & cmfe_FIELD_VALUES_SET_TYPE,1,1,NodeNums(i,1),2,0.1_CMISSDP*CrDiffy,Err)
        ENDIF
      ENDIF
-   ENDDO
+  ENDDO
+
 
   CALL cmfe_Field_ParameterSetUpdateStart(CrMaterialsField,cmfe_FIELD_U_VARIABLE_TYPE,cmfe_FIELD_VALUES_SET_TYPE,Err)
   CALL cmfe_Field_ParameterSetUpdateFinish(CrMaterialsField,cmfe_FIELD_U_VARIABLE_TYPE,cmfe_FIELD_VALUES_SET_TYPE,Err)
@@ -878,22 +837,23 @@ CALL cmfe_EquationsSet_CreateFinish(ADPEquationsSet,Err)
 
   CALL cmfe_Field_ComponentValuesInitialise(PiMaterialsField,cmfe_FIELD_U_VARIABLE_TYPE, &
    & cmfe_FIELD_VALUES_SET_TYPE, &
-   & 2,0.0_CMISSDP,Err) !diff coeff in y
+   & 2,PiDiffx,Err) !diff coeff in y
   CALL cmfe_Field_ComponentValuesInitialise(PiMaterialsField,cmfe_FIELD_U_VARIABLE_TYPE, &
    & cmfe_FIELD_VALUES_SET_TYPE, &
-   & 1,0.0_CMISSDP,Err) !diff coeff in x
-
-    DO i = 1,NUMBER_OF_NODES
-     IF(NodeCoords(i,3)<20.OR.NodeNums(i,3)==20) THEN
+   & 1,PiDiffy,Err) !diff coeff in x
+      
+      DO i = 1,NUMBER_OF_NODES
+      IF(NodeCoords(i,3)<1.AND.NodeNums(i,3)<10) THEN
       CALL cmfe_Decomposition_NodeDomainGet(Decomposition,NodeNums(i,1),1,NodeDomain,Err)
        IF(NodeDomain==ComputationalNodeNumber) THEN
         CALL cmfe_Field_ParameterSetUpdateNode(PiMaterialsField,cmfe_FIELD_U_VARIABLE_TYPE, &
-              & cmfe_FIELD_VALUES_SET_TYPE,1,1,NodeNums(i,1),1,PiDiffx,Err)
+              & cmfe_FIELD_VALUES_SET_TYPE,1,1,NodeNums(i,1),1,0.1_CMISSDP*PiDiffx,Err)
          CALL cmfe_Field_ParameterSetUpdateNode(PiMaterialsField,cmfe_FIELD_U_VARIABLE_TYPE, &
-              & cmfe_FIELD_VALUES_SET_TYPE,1,1,NodeNums(i,1),2,PiDiffy,Err)
+              & cmfe_FIELD_VALUES_SET_TYPE,1,1,NodeNums(i,1),2,0.1_CMISSDP*PiDiffy,Err)
        ENDIF
      ENDIF
-   ENDDO
+  ENDDO
+    
 
   CALL cmfe_Field_ParameterSetUpdateStart(PiMaterialsField,cmfe_FIELD_U_VARIABLE_TYPE,cmfe_FIELD_VALUES_SET_TYPE,Err)
   CALL cmfe_Field_ParameterSetUpdateFinish(PiMaterialsField,cmfe_FIELD_U_VARIABLE_TYPE,cmfe_FIELD_VALUES_SET_TYPE,Err)
@@ -933,7 +893,6 @@ CALL cmfe_EquationsSet_CreateFinish(OxyEquationsSet,Err)
   CALL cmfe_EquationsSet_MaterialsCreateFinish(OxyEquationsSet,Err)
 
 
-  !Set up same diffusivity everywhere in the cell
 
   CALL cmfe_Field_ComponentValuesInitialise(OxyMaterialsField,cmfe_FIELD_U_VARIABLE_TYPE, &
    & cmfe_FIELD_VALUES_SET_TYPE, &
@@ -942,17 +901,7 @@ CALL cmfe_EquationsSet_CreateFinish(OxyEquationsSet,Err)
    & cmfe_FIELD_VALUES_SET_TYPE, &
    & 1,OxyDiffx,Err) !diff coeff in x
 
-    DO i = 1,NUMBER_OF_NODES
-     IF(NodeCoords(i,3)<20.OR.NodeNums(i,3)==20) THEN
-      CALL cmfe_Decomposition_NodeDomainGet(Decomposition,NodeNums(i,1),1,NodeDomain,Err)
-       IF(NodeDomain==ComputationalNodeNumber) THEN
-        CALL cmfe_Field_ParameterSetUpdateNode(OxyMaterialsField,cmfe_FIELD_U_VARIABLE_TYPE, &
-              & cmfe_FIELD_VALUES_SET_TYPE,1,1,NodeNums(i,1),1,OxyDiffx,Err)
-         CALL cmfe_Field_ParameterSetUpdateNode(OxyMaterialsField,cmfe_FIELD_U_VARIABLE_TYPE, &
-              & cmfe_FIELD_VALUES_SET_TYPE,1,1,NodeNums(i,1),2,OxyDiffy,Err)
-       ENDIF
-     ENDIF
-   ENDDO
+
 
   CALL cmfe_Field_ParameterSetUpdateStart(OxyMaterialsField,cmfe_FIELD_U_VARIABLE_TYPE,cmfe_FIELD_VALUES_SET_TYPE,Err)
   CALL cmfe_Field_ParameterSetUpdateFinish(OxyMaterialsField,cmfe_FIELD_U_VARIABLE_TYPE,cmfe_FIELD_VALUES_SET_TYPE,Err)
@@ -991,7 +940,6 @@ CALL cmfe_EquationsSet_CreateFinish(DPsiEquationsSet,Err)
   !Finish the equations set materials field variables
   CALL cmfe_EquationsSet_MaterialsCreateFinish(DPsiEquationsSet,Err)
 
-  !Set up zero diffusivity everywhere in the cell
 
   CALL cmfe_Field_ComponentValuesInitialise(DPsiMaterialsField,cmfe_FIELD_U_VARIABLE_TYPE, &
    & cmfe_FIELD_VALUES_SET_TYPE, &
@@ -1018,7 +966,7 @@ CALL cmfe_EquationsSet_CreateFinish(DPsiEquationsSet,Err)
 
 
   WRITE(*,'(A)') "AAAAAAAAAAAAAAAAAAAAAAA."
-
+!____________________________________________________________________________________________________
 
 !Start to set up CellML Fields
 
@@ -1037,8 +985,19 @@ CALL cmfe_EquationsSet_CreateFinish(DPsiEquationsSet,Err)
   
   CALL cmfe_CellML_VariableSetAsKnown(CellML,MitocondriaIndex,"general_constants/param",Err)
   CALL cmfe_CellML_VariableSetAsKnown(CellML,MyofibrilIndex,"ATP/param",Err)
-  CALL cmfe_CellML_VariableSetAsWanted(CellML,MitocondriaIndex,"dO2_dt/V_VO2",Err)
+  CALL cmfe_CellML_VariableSetAsWanted(CellML,MitocondriaIndex,"ANT_flux/V_ANT",Err)
   CALL cmfe_CellML_VariableSetAsWanted(CellML,MyofibrilIndex,"H_ATP/H_ATP",Err)
+  CALL cmfe_CellML_VariableSetAsWanted(CellML,MyofibrilIndex,"v_CK/v_CK",Err)
+  CALL cmfe_CellML_VariableSetAsWanted(CellML,MitocondriaIndex,"v_MiCK/v_MiCK",Err)
+  CALL cmfe_CellML_VariableSetAsWanted(CellML,MitocondriaIndex,"Electron_flux_complex_I/V_C1",Err)
+  CALL cmfe_CellML_VariableSetAsWanted(CellML,MitocondriaIndex,"Electron_flux_complex_III/V_C3",Err)
+  CALL cmfe_CellML_VariableSetAsWanted(CellML,MitocondriaIndex,"Electron_flux_complex_IV/V_C4",Err)
+  CALL cmfe_CellML_VariableSetAsWanted(CellML,MitocondriaIndex,"ATP_synthesis_flux/V_F1",Err)
+  CALL cmfe_CellML_VariableSetAsWanted(CellML,MitocondriaIndex,"dATP_x_dt/ATP_xx",Err)
+  CALL cmfe_CellML_VariableSetAsWanted(CellML,MitocondriaIndex,"dADP_x_dt/ADP_xx",Err)
+  CALL cmfe_CellML_VariableSetAsWanted(CellML,MitocondriaIndex,"dPi_x_dt/Pi_xx",Err)
+  CALL cmfe_CellML_VariableSetAsWanted(CellML,MitocondriaIndex,"Proton_motive_force/dG_H",Err)
+
     WRITE(*,'(A)') "Time for CellML."
 
   !Finish the CellML environment
@@ -1140,27 +1099,15 @@ CALL cmfe_EquationsSet_CreateFinish(DPsiEquationsSet,Err)
 
 
   !By default all field parameters have default model value of 1, i.e. the first model. 
-  !First set up myofibrilar model at all nodes
-
+  ! assigning the bufferNryr cellml model (model 1) for all nodes.
    CALL cmfe_Field_ComponentValuesInitialise(CellMLModelsField, & 
      & cmfe_FIELD_U_VARIABLE_TYPE,cmfe_FIELD_VALUES_SET_TYPE,1,2_CMISSIntg,Err)
-  !Set up mitochondrial model at IMS nodes
-     
     DO i = 1,NUMBER_OF_NODES
-     IF(NodeCoords(i,3)>10.OR.NodeNums(i,3)==15) THEN
+     IF(NodeCoords(i,3)<1.AND.NodeNums(i,3)<10) THEN
       CALL cmfe_Decomposition_NodeDomainGet(Decomposition,NodeNums(i,1),1,NodeDomain,Err)
        IF(NodeDomain==ComputationalNodeNumber) THEN
         CALL cmfe_Field_ParameterSetUpdateNode(CellMLModelsField,cmfe_FIELD_U_VARIABLE_TYPE, &
               & cmfe_FIELD_VALUES_SET_TYPE,1,1,NodeNums(i,1),1,1_CMISSIntg,Err)
-       ENDIF
-     ENDIF
-        
-  !Set up no ODE model at matrix nodes
- IF(NodeCoords(i,3)==20.AND.NodeNums(i,3)==0) THEN
-      CALL cmfe_Decomposition_NodeDomainGet(Decomposition,NodeNums(i,1),1,NodeDomain,Err)
-       IF(NodeDomain==ComputationalNodeNumber) THEN
-        CALL cmfe_Field_ParameterSetUpdateNode(CellMLModelsField,cmfe_FIELD_U_VARIABLE_TYPE, &
-              & cmfe_FIELD_VALUES_SET_TYPE,1,1,NodeNums(i,1),1,0_CMISSIntg,Err)
        ENDIF
      ENDIF
     ENDDO
@@ -1217,32 +1164,31 @@ CALL cmfe_EquationsSet_CreateFinish(DPsiEquationsSet,Err)
     & cmfe_FIELD_VALUES_SET_TYPE,1,0.0_CMISSDP,Err)
  
     DO i = 1,NUMBER_OF_NODES
-     IF(NodeCoords(i,3)>10.OR.NodeNums(i,3)==15) THEN
+     IF(NodeCoords(i,3)<1.AND.NodeNums(i,3)<10) THEN
       CALL cmfe_Decomposition_NodeDomainGet(Decomposition,NodeNums(i,1),1,NodeDomain,Err)
        IF(NodeDomain==ComputationalNodeNumber) THEN
         CALL cmfe_Field_ParameterSetUpdateNode(DPsiField,cmfe_FIELD_U_VARIABLE_TYPE, &
               & cmfe_FIELD_VALUES_SET_TYPE,1,1,NodeNums(i,1),1,init_DPsi,Err)
-       ENDIF
-     ENDIF
-     IF(NodeCoords(i,3)==20.AND.NodeNums(i,3)==0) THEN
-      CALL cmfe_Decomposition_NodeDomainGet(Decomposition,NodeNums(i,1),1,NodeDomain,Err)
-       IF(NodeDomain==ComputationalNodeNumber) THEN
-        CALL cmfe_Field_ParameterSetUpdateNode(ATPField,cmfe_FIELD_U_VARIABLE_TYPE, &
-              & cmfe_FIELD_VALUES_SET_TYPE,1,1,NodeNums(i,1),1,8000.0_CMISSDP,Err)
-        CALL cmfe_Field_ParameterSetUpdateNode(ADPField,cmfe_FIELD_U_VARIABLE_TYPE, &
-              & cmfe_FIELD_VALUES_SET_TYPE,1,1,NodeNums(i,1),1,80.0_CMISSDP,Err)
-        CALL cmfe_Field_ParameterSetUpdateNode(PiField,cmfe_FIELD_U_VARIABLE_TYPE, &
-              & cmfe_FIELD_VALUES_SET_TYPE,1,1,NodeNums(i,1),1,1800.0_CMISSDP,Err)
-        CALL cmfe_Field_ParameterSetUpdateNode(DPsiField,cmfe_FIELD_U_VARIABLE_TYPE, &
-              & cmfe_FIELD_VALUES_SET_TYPE,1,1,NodeNums(i,1),1,0.0_CMISSDP,Err)
-       ENDIF
+       
+        ENDIF
      ENDIF
     ENDDO
 
   CALL cmfe_Field_ParameterSetUpdateStart(DPsiField,CMFE_FIELD_U_VARIABLE_TYPE,CMFE_FIELD_VALUES_SET_TYPE,Err)
   CALL cmfe_Field_ParameterSetUpdateFinish(DPsiField,CMFE_FIELD_U_VARIABLE_TYPE,CMFE_FIELD_VALUES_SET_TYPE,Err)
-    
-
+  CALL cmfe_Field_ParameterSetUpdateStart(ATPField,CMFE_FIELD_U_VARIABLE_TYPE,CMFE_FIELD_VALUES_SET_TYPE,Err)
+  CALL cmfe_Field_ParameterSetUpdateFinish(ATPField,CMFE_FIELD_U_VARIABLE_TYPE,CMFE_FIELD_VALUES_SET_TYPE,Err)  
+  CALL cmfe_Field_ParameterSetUpdateStart(ADPField,CMFE_FIELD_U_VARIABLE_TYPE,CMFE_FIELD_VALUES_SET_TYPE,Err)
+  CALL cmfe_Field_ParameterSetUpdateFinish(ADPField,CMFE_FIELD_U_VARIABLE_TYPE,CMFE_FIELD_VALUES_SET_TYPE,Err)	  
+  CALL cmfe_Field_ParameterSetUpdateStart(AMPField,CMFE_FIELD_U_VARIABLE_TYPE,CMFE_FIELD_VALUES_SET_TYPE,Err)
+  CALL cmfe_Field_ParameterSetUpdateFinish(AMPField,CMFE_FIELD_U_VARIABLE_TYPE,CMFE_FIELD_VALUES_SET_TYPE,Err)	 
+  CALL cmfe_Field_ParameterSetUpdateStart(PCrField,CMFE_FIELD_U_VARIABLE_TYPE,CMFE_FIELD_VALUES_SET_TYPE,Err)
+  CALL cmfe_Field_ParameterSetUpdateFinish(PCrField,CMFE_FIELD_U_VARIABLE_TYPE,CMFE_FIELD_VALUES_SET_TYPE,Err)	 
+  CALL cmfe_Field_ParameterSetUpdateStart(CrField,CMFE_FIELD_U_VARIABLE_TYPE,CMFE_FIELD_VALUES_SET_TYPE,Err)
+  CALL cmfe_Field_ParameterSetUpdateFinish(CrField,CMFE_FIELD_U_VARIABLE_TYPE,CMFE_FIELD_VALUES_SET_TYPE,Err)  	  
+  CALL cmfe_Field_ParameterSetUpdateStart(PiField,CMFE_FIELD_U_VARIABLE_TYPE,CMFE_FIELD_VALUES_SET_TYPE,Err)
+  CALL cmfe_Field_ParameterSetUpdateFinish(PiField,CMFE_FIELD_U_VARIABLE_TYPE,CMFE_FIELD_VALUES_SET_TYPE,Err)	 
+  	    	    	  
   !Create the equations set equations for ATP
   CALL cmfe_Equations_Initialise(ATPEquations,Err)
   CALL cmfe_EquationsSet_EquationsCreateStart(ATPEquationsSet,ATPEquations,Err)
@@ -1320,8 +1266,8 @@ CALL cmfe_EquationsSet_CreateFinish(DPsiEquationsSet,Err)
   CALL cmfe_ControlLoop_Initialise(ControlLoop,Err)
   CALL cmfe_Problem_ControlLoopGet(Problem,cmfe_CONTROL_LOOP_NODE,ControlLoop,Err)
   !Set the times
-  CALL cmfe_ControlLoop_TimesSet(ControlLoop,0.0_CMISSDP,3000.0_CMISSDP,1.0_CMISSDP,Err)
-  CALL cmfe_ControlLoop_TimeOutputSet(ControlLoop,100,Err)
+  CALL cmfe_ControlLoop_TimesSet(ControlLoop,0.0_CMISSDP,10000.0_CMISSDP,1.0_CMISSDP,Err)
+  CALL cmfe_ControlLoop_TimeOutputSet(ControlLoop,300,Err)
   !Finish creating the problem control loop
   CALL cmfe_Problem_ControlLoopCreateFinish(Problem,Err)
 
@@ -1419,7 +1365,6 @@ CALL cmfe_EquationsSet_CreateFinish(DPsiEquationsSet,Err)
   CALL cmfe_Problem_SolverEquationsCreateFinish(Problem,Err)
 
 !_________________________________________________________________________________________________________
-     !Set up the boundary contions
   WRITE(*,*) 'Set up boundary conditions'  
   CALL cmfe_BoundaryConditions_Initialise(BoundaryConditions,Err)
   CALL cmfe_SolverEquations_BoundaryConditionsCreateStart(SolverEquations,BoundaryConditions,Err)
@@ -1487,7 +1432,7 @@ CALL cmfe_EquationsSet_CreateFinish(DPsiEquationsSet,Err)
   CALL cmfe_Finalise(Err)
 
   STOP
-  END PROGRAM Cardiac_bioenergetics
+  END PROGRAM reactiondiffusionnosource1dexample
   
   
   
